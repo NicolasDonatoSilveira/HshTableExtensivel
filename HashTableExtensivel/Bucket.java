@@ -1,3 +1,5 @@
+//Gustavo R. Schwert e Nicolas D. Silveira
+
 import java.util.Arrays;
 
 public class Bucket {
