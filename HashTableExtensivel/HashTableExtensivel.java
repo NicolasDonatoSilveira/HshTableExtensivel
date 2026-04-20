@@ -1,3 +1,5 @@
+//Gustavo R. Schwert e Nicolas D. Silveira
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
