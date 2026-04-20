@@ -16,16 +16,15 @@ public class HashTableExtensivel {
         directory.add(new Bucket(1, bucketSize));
     }
 
-    private int hash(int key) {
+    private int getDirectoryIndex(int key) {
         return key & ((1 << globalDepth) - 1);
     }
 
     public void insert(int key) {
-        int index = hash(key);
+        int index = getDirectoryIndex(key);
         Bucket bucket = directory.get(index);
 
-        if (!bucket.isFull()) {
-            bucket.keys.add(key);
+        if (bucket.insertLinear(key)) {
             return;
         }
 
@@ -47,16 +46,23 @@ public class HashTableExtensivel {
         int mask = (1 << oldBucket.localDepth) - 1;
 
         for (int i = 0; i < directory.size(); i++) {
-            if (directory.get(i) == oldBucket && ((i & mask) != (index & mask))) {
-                directory.set(i, newBucket);
+            if (directory.get(i) == oldBucket) {
+                if ((i & mask) != (index & mask)) {
+                    directory.set(i, newBucket);
+                }
             }
         }
 
-        List<Integer> temp = new ArrayList<>(oldBucket.keys);
-        oldBucket.keys.clear();
+        List<Integer> tempKeys = new ArrayList<>();
+        for (Integer k : oldBucket.keys) {
+            if (k != null) tempKeys.add(k);
+        }
 
-        for (int key : temp) {
-            insert(key);
+        Arrays.fill(oldBucket.keys, null);
+        oldBucket.count = 0;
+
+        for (int k : tempKeys) {
+            insert(k);
         }
     }
 
@@ -69,15 +75,15 @@ public class HashTableExtensivel {
     }
 
     public boolean search(int key) {
-        int index = hash(key);
-        return directory.get(index).keys.contains(key);
+        int index = getDirectoryIndex(key);
+        return directory.get(index).contains(key);
     }
 
     public void remove(int key) {
-        int index = hash(key);
+        int index = getDirectoryIndex(key);
         Bucket bucket = directory.get(index);
 
-        bucket.keys.remove((Integer) key);
+        bucket.remove(key);
 
         if (bucket.isEmpty()) {
             mergeBucket(index);
@@ -87,7 +93,7 @@ public class HashTableExtensivel {
     private void mergeBucket(int index) {
         Bucket bucket = directory.get(index);
 
-        if (bucket.localDepth == 1) return;
+        if (bucket.localDepth <= 1) return;
 
         int pairIndex = index ^ (1 << (bucket.localDepth - 1));
         Bucket pairBucket = directory.get(pairIndex);
@@ -101,18 +107,18 @@ public class HashTableExtensivel {
         }
 
         pairBucket.localDepth--;
-
         tryShrink();
     }
 
     private void tryShrink() {
+        if (globalDepth <= 1) return;
+
         for (Bucket b : directory) {
             if (b.localDepth == globalDepth) return;
         }
 
         globalDepth--;
-        int newSize = 1 << globalDepth;
-        directory = directory.subList(0, newSize);
+        directory = new ArrayList<>(directory.subList(0, 1 << globalDepth));
     }
 
     public void generateDot(String fileName) {
@@ -120,12 +126,15 @@ public class HashTableExtensivel {
             writer.write("digraph HashTable {\n");
             writer.write("node [shape=record];\n\n");
 
+            writer.write("label=\"Global Depth: " + globalDepth + "\";\n");
+            writer.write("labelloc=\"t\";\n\n");
+
             Map<Bucket, String> bucketNames = new HashMap<>();
-            int bucketCount = 0;
+            int count = 0;
 
             for (Bucket b : directory) {
                 if (!bucketNames.containsKey(b)) {
-                    bucketNames.put(b, "bucket" + bucketCount++);
+                    bucketNames.put(b, "bucket" + count++);
                 }
             }
 
@@ -134,7 +143,7 @@ public class HashTableExtensivel {
                 String name = entry.getValue();
 
                 writer.write(name + " [label=\"LD: " + b.localDepth +
-                        " | Keys: " + b.keys + "\"];\n");
+                        " | " + b.getKeysString() + "\"];\n");
             }
 
             writer.write("\n");
@@ -147,10 +156,8 @@ public class HashTableExtensivel {
 
                 writer.write(dirName + " [label=\"" + binary + "\"];\n");
 
-                Bucket b = directory.get(i);
-                String bucketName = bucketNames.get(b);
-
-                writer.write(dirName + " -> " + bucketName + ";\n");
+                writer.write(dirName + " -> " +
+                        bucketNames.get(directory.get(i)) + ";\n");
             }
 
             writer.write("}\n");
