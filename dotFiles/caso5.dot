@@ -1,0 +1,14 @@
+digraph HashTable {
+node [shape=record];
+
+label="Global Depth: 1";
+labelloc="t";
+
+bucket0 [label="LD: 1 | [20, 40]"];
+bucket1 [label="LD: 1 | []"];
+
+dir0 [label="0"];
+dir0 -> bucket0;
+dir1 [label="1"];
+dir1 -> bucket1;
+}
